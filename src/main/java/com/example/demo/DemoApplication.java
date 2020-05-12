@@ -9,13 +9,12 @@ import org.springframework.boot.autoconfigure.web.reactive.WebFluxAutoConfigurat
 import org.springframework.boot.autoconfigure.web.reactive.error.ErrorWebFluxAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.support.GenericApplicationContext;
-import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
+import org.springframework.data.r2dbc.core.DatabaseClient;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 
-@EnableR2dbcRepositories
 public class DemoApplication {
 
     private final static Class<?>[] autoConfigurationClasses = {ReactiveWebServerFactoryAutoConfiguration.class,
@@ -35,12 +34,13 @@ public class DemoApplication {
                 .sources(autoConfigurationClasses)
                 .initializers((GenericApplicationContext applicationContext) -> {
                     applicationContext.registerBean(RouterFunction.class, () -> {
-                        var repo = applicationContext.getBean(BookRepository.class);
+                        var repo = applicationContext.getBean(DatabaseClient.class);
                         return route()
                                 .GET("/book", request -> {
                                     var lang = request.queryParam("lang").orElse("");
                                     var translatedBooks = repo
-                                            .findAll()
+                                            .execute("select * from book").as(Book.class)
+                                            .fetch().all()
                                             .map(book -> new Book(
                                                     book.getId(),
                                                     translationService.translateTitle(lang, book.getTitle())
