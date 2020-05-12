@@ -1,61 +1,53 @@
 package com.example.demo;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.data.r2dbc.R2dbcDataAutoConfiguration;
-import org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.reactive.HttpHandlerAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.reactive.ReactiveWebServerFactoryAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.reactive.WebFluxAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.reactive.error.ErrorWebFluxAutoConfiguration;
-import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.context.support.GenericApplicationContext;
+import io.r2dbc.spi.ConnectionFactoryOptions;
+import io.r2dbc.spi.Option;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.core.env.Profiles;
 import org.springframework.data.r2dbc.core.DatabaseClient;
-import org.springframework.web.reactive.function.server.RouterFunction;
+import org.springframework.fu.jafu.Jafu;
+import org.springframework.fu.jafu.JafuApplication;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
-import static org.springframework.web.reactive.function.server.RouterFunctions.route;
+import static org.springframework.fu.jafu.r2dbc.PostgresqlR2dbcDsl.r2dbcPostgresql;
+import static org.springframework.fu.jafu.webflux.WebFluxServerDsl.webFlux;
 
 public class DemoApplication {
 
-    private final static Class<?>[] autoConfigurationClasses = {ReactiveWebServerFactoryAutoConfiguration.class,
-            // web
-            HttpHandlerAutoConfiguration.class,
-            WebFluxAutoConfiguration.class,
-            ErrorWebFluxAutoConfiguration.class,
-
-            // data
-            R2dbcAutoConfiguration.class,
-            R2dbcDataAutoConfiguration.class};
-
-    public static SpringApplication buildApp() {
+    public static JafuApplication buildApp(int port) {
         var translationService = new TranslationService();
 
-        return new SpringApplicationBuilder(DemoApplication.class)
-                .sources(autoConfigurationClasses)
-                .initializers((GenericApplicationContext applicationContext) -> {
-                    applicationContext.registerBean(RouterFunction.class, () -> {
-                        var repo = applicationContext.getBean(DatabaseClient.class);
-                        return route()
-                                .GET("/book", request -> {
-                                    var lang = request.queryParam("lang").orElse("");
-                                    var translatedBooks = repo
-                                            .execute("select * from book").as(Book.class)
-                                            .fetch().all()
-                                            .map(book -> new Book(
-                                                    book.getId(),
-                                                    translationService.translateTitle(lang, book.getTitle())
-                                            ));
+        return Jafu.reactiveWebApplication(app -> app
+                .beans(beans -> beans.bean(TranslationService.class, () -> translationService))
+                .enable(r2dbcPostgresql(db -> {
+                    String url = db.env().getProperty("spring.r2dbc.url");
+                    ConnectionFactoryOptions options = ConnectionFactoryOptions.parse(url);
+                    db.host(options.getValue(Option.valueOf("host")))
+                            .database(options.getValue(Option.valueOf("database")))
+                            .username(db.env().getProperty("spring.r2dbc.username"))
+                            .password(db.env().getProperty("spring.r2dbc.password"));
+                }))
+                .enable(webFlux(web -> web
+                        .port(port)
+                        .router(router -> {
+                            router.GET("/book", request -> {
+                                var lang = request.queryParam("lang").orElse("");
+                                var client = app.ref(DatabaseClient.class);
+                                var service = app.ref(TranslationService.class);
+                                var translatedBooks = client.execute("select * from book").as(Book.class)
+                                        .fetch().all()
+                                        .map(book -> new Book(
+                                                book.getId(),
+                                                service.translateTitle(lang, book.getTitle())
+                                        ));
 
-                                    return ServerResponse.ok().body(translatedBooks, Book.class);
-                                })
-                                .build();
-                    });
-                })
-                .build();
+                                return ServerResponse.ok().body(translatedBooks, Book.class);
+                            });
+                        }).codecs(codes -> codes.jackson().string()))));
     }
 
     public static void main(String[] args) {
-        buildApp().run(args);
+        buildApp(8080).run(args);
     }
 
 }

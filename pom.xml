@@ -30,6 +30,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.springframework.fu</groupId>
+            <artifactId>spring-fu-jafu</artifactId>
+            <version>0.3.2</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.r2dbc</groupId>
             <artifactId>r2dbc-h2</artifactId>
             <scope>test</scope>
@@ -96,7 +102,7 @@
                         </executions>
                         <configuration>
                             <imageName>demo</imageName>
-                            <buildArgs> -H:+TraceClassInitialization --initialize-at-build-time=java.sql.DriverManager</buildArgs>
+                            <buildArgs> -H:+TraceClassInitialization --initialize-at-build-time=java.sql.DriverManager -H:ReflectionConfigurationFiles=../reflectionconfig.json</buildArgs>
                         </configuration>
                     </plugin>
                     <plugin>

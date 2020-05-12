@@ -1,20 +1,17 @@
 package com.example.demo;
 
-import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.test.autoconfigure.data.r2dbc.AutoConfigureDataR2dbc;
-import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.r2dbc.core.DatabaseClient;
-import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.util.SocketUtils;
 
 import static com.example.demo.DemoApplication.buildApp;
 import static org.hamcrest.Matchers.equalTo;
+import static org.springframework.fu.jafu.r2dbc.H2R2dbcDsl.r2dbcH2;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DemoApplicationTests {
@@ -24,7 +21,10 @@ class DemoApplicationTests {
 
     @BeforeAll
     void setUp() {
-        applicationContext = buildApp().run();
+        applicationContext = buildApp(SocketUtils.findAvailableTcpPort())
+                .customize(app -> app.enable(r2dbcH2()))
+                .run();
+
         webTestClient = WebTestClient.bindToApplicationContext(applicationContext).build();
 
         DatabaseClient databaseClient = applicationContext.getBean(DatabaseClient.class);

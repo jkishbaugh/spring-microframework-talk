@@ -7,20 +7,33 @@ import org.springframework.data.annotation.Id;
 public class Book {
 
 	@Id
-    private final Long id;
- 	private final String title;
+    private Long id;
+	private String title;
+
+	public Book() {
+		this.id = null;
+		this.title = "";
+	}
 
 	public Book(Long id, String title) {
 		this.id = id;
 		this.title = title;
 	}
 
-	public java.lang.Long getId() {
+	public Long getId() {
 		return id;
 	}
 
-	public java.lang.String getTitle() {
+	public void setId(Long id) {
+		this.id = id;
+	}
+
+	public String getTitle() {
 		return title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
 	}
 
 	@Override
